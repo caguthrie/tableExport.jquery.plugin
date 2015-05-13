@@ -28,7 +28,7 @@ THE SOFTWARE.*/
 						ignoreColumn: [],
 						tableName:'yourTableName',
 						type:'csv',
-						pdfFontSize:14,
+						pdfFontSize:6,
 						pdfLeftMargin:20,
 						escape:'true',
 						htmlContent:'false',
@@ -215,9 +215,9 @@ THE SOFTWARE.*/
 					//console.log($(this).html());
 					var excel="<table>";
 					// Header
-					$(el).find('thead').find('tr').each(function() {
+					$(el).find('.rt-headers').each(function() {
 						excel += "<tr>";
-						$(this).filter(':visible').find('th').each(function(index,data) {
+						$(this).filter(':visible').find('.rt-header-anchor-text').each(function(index,data) {
 							if ($(this).css('display') != 'none'){					
 								if(defaults.ignoreColumn.indexOf(index) == -1){
 									excel += "<td>" + parseString($(this))+ "</td>";
@@ -232,8 +232,13 @@ THE SOFTWARE.*/
 					// Row Vs Column
 					var rowCount=1;
 					$(el).find('tbody').find('tr').each(function() {
+                        if( $(this).find('td').first().text().match("Grand Total") ) {
+                            rowCount++;
+                            return;
+                        }
 						excel += "<tr>";
 						var colCount=0;
+
 						$(this).filter(':visible').find('td').each(function(index,data) {
 							if ($(this).css('display') != 'none'){	
 								if(defaults.ignoreColumn.indexOf(index) == -1){
@@ -289,39 +294,73 @@ THE SOFTWARE.*/
 					});		
 				}else if(defaults.type == 'pdf'){
 	
-					var doc = new jsPDF('p','pt', 'a4', true);
+					var doc = new jsPDF('l','pt', 'letter', true);
 					doc.setFontSize(defaults.pdfFontSize);
-					
+                    var widths = [];
 					// Header
 					var startColPosition=defaults.pdfLeftMargin;
-					$(el).find('thead').find('tr').each(function() {
-						$(this).filter(':visible').find('th').each(function(index,data) {
+					$(el).find('.rt-headers').each(function() {
+						$(this).filter(':visible').find('.rt-header-anchor-text').each(function(index,data) {
 							if ($(this).css('display') != 'none'){					
 								if(defaults.ignoreColumn.indexOf(index) == -1){
-									var colPosition = startColPosition+ (index * 50);									
-									doc.text(colPosition,20, parseString($(this)));
+                                    widths[index] = parseString($(this)).length * 3.5;
 								}
 							}
 						});									
-					});					
-				
-				
-					// Row Vs Column
+					});
+
+                    $(el).find('tbody').find('tr').each(function(index,data) {
+                        if( $(this).find('td').first().text().match("Grand Total") ) {
+                            return;
+                        }
+                        $(this).filter(':visible').find('td').each(function(index,data) {
+                            if ($(this).css('display') != 'none'){
+                                if(defaults.ignoreColumn.indexOf(index) == -1){
+                                    var currentLength = parseString($(this)).length * 3.5;
+                                    if( !widths[index] || widths[index] < currentLength )
+                                        widths[index] = currentLength;
+                                }
+                            }
+
+                        });
+
+                    });
+
+                    console.log(widths);
+
+                    $(el).find('.rt-headers').each(function() {
+                        $(this).filter(':visible').find('.rt-header-anchor-text').each(function(index,data) {
+                            if ($(this).css('display') != 'none'){
+                                if(defaults.ignoreColumn.indexOf(index) == -1){
+                                    var colPosition = startColPosition + widths.reduce(function(prev,current,idx){
+                                            return idx <= index ? prev + current : prev;
+                                    });
+                                    doc.text(colPosition,20, parseString($(this)));
+                                }
+                            }
+                        });
+                    });
+                    // Row Vs Column
 					var startRowPosition = 20; var page =1;var rowPosition=0;
 					$(el).find('tbody').find('tr').each(function(index,data) {
+                        if( $(this).find('td').first().text().match("Grand Total") ) {
+                            return;
+                        }
 						rowCalc = index+1;
 						
-					if (rowCalc % 26 == 0){
-						doc.addPage();
-						page++;
-						startRowPosition=startRowPosition+10;
-					}
-					rowPosition=(startRowPosition + (rowCalc * 10)) - ((page -1) * 280);
+                        if (rowCalc % 50 == 0){
+                            doc.addPage();
+                            page++;
+                            startRowPosition=startRowPosition+10;
+                        }
+                        rowPosition=(startRowPosition + (rowCalc * 10)) - ((page -1) * 280);
 						
 						$(this).filter(':visible').find('td').each(function(index,data) {
 							if ($(this).css('display') != 'none'){	
 								if(defaults.ignoreColumn.indexOf(index) == -1){
-									var colPosition = startColPosition+ (index * 50);									
+									var colPosition = startColPosition + widths.reduce(function(prev,current,idx){
+                                            return idx <= index ? prev + current : prev;
+                                    });
 									doc.text(colPosition,rowPosition, parseString($(this)));
 								}
 							}
@@ -343,10 +382,13 @@ THE SOFTWARE.*/
 					}else{
 						content_data = data.text().trim();
 					}
+
+                    content_data = content_data.replace(/[^\x00-\x7F]/g, "");
+                    content_data = content_data.substr(0,20);
 					
-					if(defaults.escape == 'true'){
-						content_data = escape(content_data);
-					}
+					//if(defaults.escape == 'true'){
+					//	content_data = escape(content_data);
+					//}
 					
 					
 					
